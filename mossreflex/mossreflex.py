@@ -4,7 +4,9 @@ mossreflex.py
 Author: Emma Wang (ejw38)
 Date:   7-17-2024
 
-might come in handy later?: https://fastapi.tiangolo.com/tutorial/request-files/
+
+https://reflex.dev/
+might come in handy later??: https://fastapi.tiangolo.com/tutorial/request-files/
 
 perl moss [-l language] [-d] [-b basefile1] ... [-b basefilen] [-m #] [-c "string"] file1 file2 file3 ...
 """
@@ -20,7 +22,9 @@ languages = ["a8086", "ada", "ascii", "c", "cc", "csharp", "fortran", "haskell",
 class State(rx.State):
     """The app state."""
 
-    # variables
+    msg: str = ""
+
+    # Variables for options
     final: str = ""
     base: bool = False
     lang: str = ""
@@ -30,6 +34,7 @@ class State(rx.State):
 
     basefiles: list[str]
     sourcefiles: list[str]
+
 
     async def handle_upload(self, files: list[rx.UploadFile]):
         """Handle the upload of file(s).
@@ -47,62 +52,80 @@ class State(rx.State):
 
             # Update file list
             if not self.base:
-                self.sourcefiles.append(outfile)
+                self.sourcefiles.append(outfile)    # Change outfile to file.filename to not only show filename
             else:
-                self.basefiles.append(outfile) #file.filename)
+                self.basefiles.append(outfile)      
             
 
     def flip(self):
+        """Set variable base to True. Used to distinguish between source and base files.
+        """
         self.base = True
 
-    def thing(self):
-        # build final full string
-        # perl moss [-l language] [-d] [-b basefile1] ... [-b basefilen] [-m #] [-c "string"] file1 file2 file3 ...
-        finalboss = "perl moss "
+    def create_string(self):
+        """Build the string to run in the terminal.
 
-        # append optional options
-        # language
+        Structure:
+            perl moss [-l language] [-d] [-b basefile1] ... [-b basefilen] [-m #] [-c "string"] file1 file2 file3 ...
+        """
+        string = "perl moss "
+
+        # Append optional options
+        # Language
         if self.lang:
-            finalboss += "-l {} ".format(self.lang)
-        # directory mode
+            string += "-l {} ".format(self.lang)
+        # Directory mode
         if self.d:
-            finalboss += "-d "
-        # base files
+            string += "-d "
+        # Base files
         if self.basefiles:
             for file in self.basefiles:
-                finalboss += "-b {} ".format(file)
+                string += "-b {} ".format(file)
         # m
         if self.m != 10:
-            finalboss += "-m {} ".format(self.m)
+            string += "-m {} ".format(self.m)
         # c
         if self.c:
-            finalboss += "-c \"{}\" ".format(self.c)
+            string += "-c \"{}\" ".format(self.c)
         
-        # append source files
+        # Append source files
         if not self.sourcefiles:
-            self.final = "hey, add source files"
+            self.msg = "Hey, add source files"
         else:
             for file in self.sourcefiles:
-                finalboss += "{} ".format(file)
-        
-            self.final = finalboss
+                string += "{} ".format(file)
+
+            self.final = string     # save final string in state
+
+            # Call next function to run the command
             self.moss()
 
     def moss(self):
+        """Run command in the terminal and grab the resulting link."""
+        # Run
         cmd = self.final.split()
+        # Get output
         link = subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8')
-        #self.final = link.stdout.decode('utf-8')
         parsed = link.split()
+        # Get link
         self.final = parsed[-1]
+    
+    # Not really used. Might remove later
+    def insert_msg(self, txt):
+        """Display a message under the link.
+        
+        Args:
+            txt: The message to be displayed.
+        """
+        self.msg = txt
 
 def index() -> rx.Component:
-    # Welcome Page (Index)
     return rx.box(
         rx.heading("Mossreflex", size="9", color_scheme="grass"),
         rx.color_mode.button(position="top-right"),
         rx.box("temp placeholder", background_color="teal", border_radius="4px", width="100%", margin="4px", padding="4px"),
         rx.hstack(
-            # Column 2, upload source files
+            # Column 1, upload source files
             rx.vstack(
                 rx.button(
                     "Upload source files", color_scheme="grass",
@@ -120,19 +143,18 @@ def index() -> rx.Component:
                     id="upload2",
                     border="1px dotted black",
                     padding="5em",
+                    on_mount=rx.call_script("""document.querySelector("div#upload2 > input").toggleAttribute("webkitdirectory")"""),
                 ),
-                #rx.foreach(rx.selected_files("upload2"), rx.text),
                 rx.foreach(State.sourcefiles, rx.text),
-                #rx.foreach(State.img, lambda img: rx.image(src=rx.get_upload_url(img))),
                 width="25%",
             ),
 
-            # Column 1, upload base files
+            # Column 2, upload base files
+                # program code that also appears in the base file is not counted in matches
             rx.vstack(
                 rx.button(
                     "Upload base files", color_scheme="grass",
                     on_click=lambda:[State.flip(), State.handle_upload(rx.upload_files(upload_id="upload1"))],
-                    #on_click=State.handle_upload(rx.upload_files(upload_id="upload1")),
                 ),
                 rx.button(
                     "Clear",
@@ -146,14 +168,14 @@ def index() -> rx.Component:
                     id="upload1",
                     border="1px dotted black",
                     padding="5em",
+                    # TODO: add another on_mount?
                 ),
                 rx.foreach(State.basefiles, rx.text),
-                #rx.foreach(rx.selected_files("upload1"), rx.text),
-                #rx.foreach(State.img, lambda img: rx.vstack(rx.image(src=rx.get_upload_url(img)),rx.text(img),),
             ),
 
             # Column 3, other options
             rx.vstack(
+                # Language
                 rx.select(
                     languages,
                     placeholder="Select Language",
@@ -161,6 +183,7 @@ def index() -> rx.Component:
                     value=State.lang,
                     on_change=State.set_lang,
                 ),
+                # Directory mode: files in a directory are taken to be part of the same program
                 rx.checkbox(
                     "Directory mode", 
                     size="2", 
@@ -168,6 +191,7 @@ def index() -> rx.Component:
                     default_checked=State.d,
                     on_change=State.set_d
                     ),
+                # m: maximum number of times a given passage may appear before it is ignored
                 rx.hstack(
                     rx.text("-m: "),
                     rx.input(
@@ -176,6 +200,7 @@ def index() -> rx.Component:
                         on_change=State.set_m
                         ),
                 ),
+                # c: supplies a comment string that is attached to the generated report
                 rx.hstack(
                     rx.text("-c: "),
                     rx.input(
@@ -184,9 +209,13 @@ def index() -> rx.Component:
                         on_change=State.set_c
                         ),
                 ),
-                rx.button("Do the thing", color_scheme="cyan", on_click=State.thing),
-                #rx.text(State.final),
+
+                # Create string, run command, & get link
+                rx.button("Get link", color_scheme="cyan", on_click=State.create_string),
+                # Display link
                 rx.link("{}".format(State.final), href="{}".format(State.final)),
+                # Display any other messages
+                rx.text(State.msg),
                 margin="50px",
             ),
         ),
