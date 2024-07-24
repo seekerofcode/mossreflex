@@ -119,22 +119,24 @@ class State(rx.State):
         """
         self.msg = txt
 
+    def handle_dir_upload(self):
+        """TODO Will handle uploading directories instead of files? (maybe?)
+
+        """
+
 def index() -> rx.Component:
     return rx.box(
         rx.heading("Mossreflex", size="9", color_scheme="grass"),
         rx.color_mode.button(position="top-right"),
-        rx.box("temp placeholder", background_color="teal", border_radius="4px", width="100%", margin="4px", padding="4px"),
         rx.hstack(
-            # Column 1, upload source files
+            rx.box("", background_color="teal", border_radius="4px", margin="4px", padding="4px", width="95%"),
+            rx.button("?", color_scheme="grass", on_click=State.insert_msg("ey")), # temporary msg, will add actual stuff
+        ),
+        rx.hstack(
+            # Column 1, upload files
+
+            # Source files
             rx.vstack(
-                rx.button(
-                    "Upload source files", color_scheme="grass",
-                    on_click=State.handle_upload(rx.upload_files(upload_id="upload2")),
-                ),
-                rx.button(
-                    "Clear",
-                    on_click=rx.clear_selected_files("upload2"),
-                ),
                 rx.upload(
                     rx.vstack(
                         rx.button("Select", color="black", bg="white", border="1px solid black"),
@@ -143,23 +145,21 @@ def index() -> rx.Component:
                     id="upload2",
                     border="1px dotted black",
                     padding="5em",
-                    on_mount=rx.call_script("""document.querySelector("div#upload2 > input").toggleAttribute("webkitdirectory")"""),
+                    on_mount=rx.call_script("""document.querySelector("div#upload2 > input").setAttribute("webkitdirectory", "true"); document.querySelector("div#upload2 > input").removeAttribute("style")"""),
+                ),
+                rx.hstack(
+                    rx.button(
+                        "Upload source files", color_scheme="grass",
+                        on_click=State.handle_upload(rx.upload_files(upload_id="upload2")),
+                    ),
+                    rx.button(
+                        "Clear",
+                        on_click=rx.clear_selected_files("upload2"),
+                    ),
                 ),
                 rx.foreach(State.sourcefiles, rx.text),
-                width="25%",
-            ),
-
-            # Column 2, upload base files
-                # program code that also appears in the base file is not counted in matches
-            rx.vstack(
-                rx.button(
-                    "Upload base files", color_scheme="grass",
-                    on_click=lambda:[State.flip(), State.handle_upload(rx.upload_files(upload_id="upload1"))],
-                ),
-                rx.button(
-                    "Clear",
-                    on_click=rx.clear_selected_files("upload1"),
-                ),
+                
+                # Base files
                 rx.upload(
                     rx.vstack(
                         rx.button("Select", color="black", bg="white", border="1px solid black"),
@@ -170,10 +170,21 @@ def index() -> rx.Component:
                     padding="5em",
                     # TODO: add another on_mount?
                 ),
+                rx.hstack(
+                    rx.button(
+                        "Upload base files", color_scheme="grass",
+                        on_click=lambda:[State.flip(), State.handle_upload(rx.upload_files(upload_id="upload1"))],
+                    ),
+                    rx.button(
+                        "Clear",
+                        on_click=rx.clear_selected_files("upload1"),
+                    ),
+                ),
                 rx.foreach(State.basefiles, rx.text),
+                width="30%",
             ),
 
-            # Column 3, other options
+            # Column 2, other options
             rx.vstack(
                 # Language
                 rx.select(
@@ -183,31 +194,29 @@ def index() -> rx.Component:
                     value=State.lang,
                     on_change=State.set_lang,
                 ),
-                # Directory mode: files in a directory are taken to be part of the same program
+                # Directory mode
                 rx.checkbox(
-                    "Directory mode", 
+                    "Directory mode: files in a directory are taken to be part of the same program", 
                     size="2", 
                     color_scheme="grass", 
                     default_checked=State.d,
                     on_change=State.set_d
                     ),
-                # m: maximum number of times a given passage may appear before it is ignored
-                rx.hstack(
-                    rx.text("-m: "),
-                    rx.input(
-                        placeholder="Enter integer", max_length=10, 
-                        value=State.m,
-                        on_change=State.set_m
-                        ),
+                # m
+                rx.text(
+                    "Maximum number of times a given passage may appear before it is ignored ", size="2",
                 ),
-                # c: supplies a comment string that is attached to the generated report
-                rx.hstack(
-                    rx.text("-c: "),
-                    rx.input(
-                        placeholder="Enter string", max_length=50, 
-                        value=State.c, 
-                        on_change=State.set_c
-                        ),
+                rx.input(
+                    placeholder="Enter integer", max_length=10, 
+                    value=State.m,
+                    on_change=State.set_m
+                ),
+                # c
+                rx.text("Comment string that is attached to the generated report ", size="2"),
+                rx.input(
+                    placeholder="Enter string", max_length=50, 
+                    value=State.c, 
+                    on_change=State.set_c
                 ),
 
                 # Create string, run command, & get link
@@ -219,7 +228,6 @@ def index() -> rx.Component:
                 margin="50px",
             ),
         ),
-        rx.logo(),
         text_align="left",
         margin="20px",
         padding="20px",

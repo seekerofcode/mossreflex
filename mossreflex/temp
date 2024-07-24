@@ -1,0 +1,1 @@
+; document.querySelector("div#upload2 > input").removeAttribute("style")
