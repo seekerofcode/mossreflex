@@ -49,14 +49,21 @@ class State(rx.State):
             outfile = rx.get_upload_dir() / file.filename
 
             # Save the file.
+            print(f"saving file: {file.filename}")
             with outfile.open("wb") as file_object:
                 file_object.write(upload_data)
 
             # Update file list
+            path = rx.get_upload_dir()
+            filepath = os.path.join(path, file.filename)
             if self.base:
-                self.basefiles.append(outfile)
+                self.basefiles.append(filepath)
+                print(f"appended file: {self.basefiles}")
             else:
-                self.sourcefiles.append(outfile)
+                self.sourcefiles.append(filepath)
+                print(f"appended file: {self.sourcefiles}")
+            
+        # print(f"appended files: {self.sourcefiles}")
 
     # Previously the error was
         # No such file or directory: #'uploaded_files/sample_sourcefiles/ejwMainWindow.xaml.cs'
@@ -114,20 +121,32 @@ class State(rx.State):
         Args:
             base: Indicate whether to clear base or source files.
         """
+        if self.base:
+            which = self.basefiles
+        else:
+            which = self.sourcefiles
         
+        if not which:
+            return
+
+        print(f"which: {which}")
+
         dir = rx.get_upload_dir()
+        print(f"sourcefiles: {self.sourcefiles}")
+        print(f"basefiles: {self.basefiles}")
+
         for subdir in os.listdir(dir):
             filepath = os.path.join(dir, subdir)
             print(f"checking {filepath} now")
             print(f"Base: {self.base}")
             try:
-                if os.path.isfile(filepath) and (self.base):
-                    if filepath in self.basefiles:
-                        print(f"base: deleting {filepath}")
+                if os.path.isfile(filepath):
+                    if filepath in which:
+                        print(f"deleting {filepath}")
                         os.remove(filepath)
-                    else:
-                        print(f"source: deleting {filepath}")
-                        os.remove(filepath)
+                    # elif filepath in which:
+                    #     print(f"deleting sourcefile {filepath}")
+                    #     os.remove(filepath)
                 elif os.path.isdir(filepath) and (not self.base):
                     print(f"deleting {filepath}")
                     shutil.rmtree(filepath)
@@ -204,6 +223,12 @@ class State(rx.State):
             txt: The message to be displayed.
         """
         self.msg = txt
+    
+    def checkfiles(self):
+        print()
+        print(f"Sourcefiles: {self.sourcefiles}")
+        print(f"Basefiles: {self.basefiles}")
+        print()
 
 
 def index() -> rx.Component:
@@ -219,7 +244,7 @@ def index() -> rx.Component:
                 padding="4px",
                 width="95%",
             ),
-            rx.button("?", color_scheme="grass", on_click=State.insert_msg("ey")),  # temporary msg, will add actual stuff
+            rx.button("?", color_scheme="grass", on_click=State.checkfiles),  # temporary msg, will add actual stuff
         ),
         rx.hstack(
             # Column 1, upload files
